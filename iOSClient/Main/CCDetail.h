@@ -33,6 +33,8 @@
 
 @class tableMetadata;
 @class NCViewerImagemeter;
+@class NCMediaPlayerViewController;
+@class NCMediaPlayerItem;
 
 @interface CCDetail : UIViewController <MWPhotoBrowserDelegate, ReaderViewControllerDelegate>
 
@@ -48,6 +50,9 @@
 // Media
 @property (nonatomic, strong) UIBarButtonItem *buttonAction;
 @property BOOL isMediaObserver;
+@property (nonatomic, strong) NSMutableArray *medias;
+@property (nonatomic, strong) NSMutableArray *mediaDataSource;
+@property (nonatomic, strong) NCMediaPlayerViewController *mediaBrowser;
 
 // Photo
 @property (nonatomic, strong) NSMutableArray *photoDataSource;

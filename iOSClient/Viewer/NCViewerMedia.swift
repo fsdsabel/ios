@@ -8,6 +8,7 @@
 
 import Foundation
 import KTVHTTPCache
+import SRGMediaPlayer
 
 class NCViewerMedia: NSObject {
 
@@ -16,6 +17,9 @@ class NCViewerMedia: NSObject {
     var videoURL: URL!
     let appDelegate = UIApplication.shared.delegate as! AppDelegate
     var safeAreaBottom: Int = 0
+    var previousButton: UIBarButtonItem!
+    var nextButton: UIBarButtonItem!
+    var playerController: SRGMediaPlayerViewController!
 
     @objc static let sharedInstance: NCViewerMedia = {
         let viewMedia = NCViewerMedia()
@@ -25,10 +29,9 @@ class NCViewerMedia: NSObject {
 
     @objc func viewMedia(_ metadata: tableMetadata, detail: CCDetail) {
         
-        var videoURLProxy: URL!
-
+        
         self.detail = detail
-        self.metadata = metadata
+        
         
         guard let rootView = UIApplication.shared.keyWindow else {
             return
@@ -38,36 +41,40 @@ class NCViewerMedia: NSObject {
             safeAreaBottom = Int(rootView.safeAreaInsets.bottom)
         }
         
-        if CCUtility.fileProviderStorageExists(metadata.fileID, fileNameView: metadata.fileNameView) {
-        
-            self.videoURL = URL(fileURLWithPath: CCUtility.getDirectoryProviderStorageFileID(metadata.fileID, fileNameView: metadata.fileNameView))
-            videoURLProxy = videoURL
-        
-        } else {
-            
-            guard let stringURL = (metadata.serverUrl + "/" + metadata.fileName).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-                return
-            }
-            
-            self.videoURL = URL(string: stringURL)
-            videoURLProxy = KTVHTTPCache.proxyURL(withOriginalURL: self.videoURL)
-            
-            guard let authData = (appDelegate.activeUser + ":" + appDelegate.activePassword).data(using: .utf8) else {
-                return
-            }
-            
-            let authValue = "Basic " + authData.base64EncodedString(options: [])
-            KTVHTTPCache.downloadSetAdditionalHeaders(["Authorization":authValue, "User-Agent":CCUtility.getUserAgent()])
-            
-            // Disable Button Action (the file is in download via Proxy Server)
-            detail.buttonAction.isEnabled = false
+        guard let videoURLProxy = loadMetadata(metadata: metadata) else {
+            return
         }
         
-        appDelegate.player = AVPlayer(url: videoURLProxy)
+        playerController = SRGMediaPlayerViewController()
+        appDelegate.playerController = playerController
+        
+        playerController.controller.playerCreationBlock = { (player) -> Void in
+             player.addObserver(self, forKeyPath: "rate", options: [], context: nil)
+        }
+        
+        playerController.view.frame = CGRect(x: 0, y: 0, width: Int(detail.view.bounds.size.width), height: Int(detail.view.bounds.size.height) - Int(k_detail_Toolbar_Height) - safeAreaBottom - 1)
+        detail.addChild(playerController)
+        detail.view.addSubview(playerController.view)
+        playerController.didMove(toParent: detail)
+        
+        NotificationCenter.default.addObserver(forName: NSNotification.Name.SRGMediaPlayerPlaybackStateDidChange, object: playerController.controller, queue: nil) { (notification) in
+            switch(self.playerController.controller.playbackState) {
+            case .ended:
+                self.currentMediaIndex += 1
+                break
+            default:
+                break
+            }
+            
+        }
+        
+        
+      //  SRGMediaPlayerViewController
+        /*appDelegate.player = AVPlayer(url: videoURLProxy)
         appDelegate.playerController = AVPlayerViewController()
         
         appDelegate.playerController.player = appDelegate.player
-        appDelegate.playerController.view.frame = CGRect(x: 0, y: 0, width: Int(rootView.bounds.size.width), height: Int(rootView.bounds.size.height) - Int(k_detail_Toolbar_Height) - safeAreaBottom - 1)
+        appDelegate.playerController.view.frame = CGRect(x: 0, y: 0, width: Int(detail.view.bounds.size.width), height: Int(detail.view.bounds.size.height) - Int(k_detail_Toolbar_Height) - safeAreaBottom - 1)
         appDelegate.playerController.allowsPictureInPicturePlayback = false
         detail.addChild(appDelegate.playerController)
         detail.view.addSubview(appDelegate.playerController.view)
@@ -78,18 +85,113 @@ class NCViewerMedia: NSObject {
             player.seek(to: CMTime.zero)
         }
         
-        appDelegate.player.addObserver(self, forKeyPath: "rate", options: [], context: nil)
+        appDelegate.player.addObserver(self, forKeyPath: "rate", options: [], context: nil)*/
+        
         
         detail.isMediaObserver = true
         
-        appDelegate.player.play()
+        augmentToolbar()
+        
+        //appDelegate.player.play()
+        playerController.controller.play(videoURLProxy)
+    }
+    
+    private func augmentToolbar() {
+        let fixedSpaceMini = UIBarButtonItem.init(barButtonSystemItem: UIBarButtonItem.SystemItem.fixedSpace, target: self, action: nil)
+        fixedSpaceMini.width = 25
+        previousButton = UIBarButtonItem.init(image: CCGraphics.changeThemingColorImage(UIImage(named: "previous"), width: 28, height: 34, color:NCBrandColor.sharedInstance.icon), style: UIBarButtonItem.Style.plain, target:self, action:#selector(NCViewerMedia.previousButtonPressed(button:)))
+        nextButton = UIBarButtonItem.init(image: CCGraphics.changeThemingColorImage(UIImage(named: "next"), width: 28, height: 34, color:NCBrandColor.sharedInstance.icon), style: UIBarButtonItem.Style.plain, target:self, action:#selector(NCViewerMedia.nextButtonPressed(button:)))
+        
+        updateStates()
+        
+        var items = detail.toolbar.items
+        items?.insert(nextButton, at: 0);
+        items?.insert(fixedSpaceMini, at: 0);
+        items?.insert(previousButton, at: 0);
+        detail.toolbar.setItems(items, animated: false)
+    }
+    
+    private func getUrl(metadata: tableMetadata) -> (url:URL, proxyUrl: URL, isLocal: Bool)? {
+        if CCUtility.fileProviderStorageExists(metadata.fileID, fileNameView: metadata.fileNameView) {
+            
+            let videoURL = URL(fileURLWithPath: CCUtility.getDirectoryProviderStorageFileID(metadata.fileID, fileNameView: metadata.fileNameView))
+            return (videoURL, videoURL, true)
+            
+        }
+        guard let stringURL = (metadata.serverUrl + "/" + metadata.fileName).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return nil
+        }
+        
+        let videoURL = URL(string: stringURL)
+        let videoURLProxy = KTVHTTPCache.proxyURL(withOriginalURL: self.videoURL)
+        
+        guard let authData = (appDelegate.activeUser + ":" + appDelegate.activePassword).data(using: .utf8) else {
+            return nil
+        }
+        
+        let authValue = "Basic " + authData.base64EncodedString(options: [])
+        KTVHTTPCache.downloadSetAdditionalHeaders(["Authorization":authValue, "User-Agent":CCUtility.getUserAgent()])
+        
+        return (videoURL!, videoURLProxy!, false)
+    }
+    
+    private func loadMetadata(metadata: tableMetadata) -> URL? {
+        self.metadata = metadata
+        let urlData = getUrl(metadata: metadata)
+        if urlData == nil {
+            return nil
+        }
+        self.videoURL = urlData!.url
+        let videoURLProxy = urlData!.proxyUrl
+        if !urlData!.isLocal {
+            // Disable Button Action (the file is in download via Proxy Server)
+            detail.buttonAction.isEnabled = false
+        }
+        return videoURLProxy
+    }
+    
+    @objc func previousButtonPressed(button:UIBarButtonItem) {
+        currentMediaIndex -= 1
+    }
+    
+    @objc func nextButtonPressed(button:UIBarButtonItem) {
+        currentMediaIndex += 1
+    }
+    
+    
+    var currentMediaIndex: Int {
+        get {
+            return detail.medias.index(of: metadata)
+        }
+        set (value) {
+            let currentIndex = currentMediaIndex
+            
+            if value == currentIndex {
+                return
+            }
+            let newIndex = value % detail.medias.count
+            metadata = detail.medias.object(at: newIndex) as? tableMetadata
+            
+            guard let url = loadMetadata(metadata: metadata) else {
+                return
+            }
+            detail.navigationController?.navigationBar.topItem?.title = metadata.fileNameView
+            detail.metadataDetail = metadata
+            playerController.controller.play(url)
+            updateStates()
+        }
+    }
+    
+    func updateStates() {
+        previousButton.isEnabled = currentMediaIndex > 0
+        nextButton.isEnabled = currentMediaIndex < detail.medias.count - 1
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        
+        //TODO: call that
         if keyPath != nil && keyPath == "rate" {
             
-            if appDelegate.player.rate == 1 {
+            if appDelegate.playerController.controller.player?.rate == 1 {
                 print("start")
             } else {
                 print("stop")
@@ -117,8 +219,10 @@ class NCViewerMedia: NSObject {
     
     @objc func removeObserver() {
         
-        appDelegate.player.removeObserver(self, forKeyPath: "rate", context: nil)
-        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object: nil)
+       // appDelegate.player.removeObserver(self, forKeyPath: "rate", context: nil)
+       // NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object: nil)
+        appDelegate.playerController?.controller.player?.removeObserver(self, forKeyPath: "rate", context: nil)
+        NotificationCenter.default.removeObserver(self, name: NSNotification.Name.SRGMediaPlayerPlaybackStateDidChange, object: playerController.controller)
     }
     
     @objc func setupHTTPCache() {

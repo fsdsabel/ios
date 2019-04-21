@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6506D87E226C883600468C1D /* SRGMediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6506D87D226C883600468C1D /* SRGMediaPlayer.framework */; };
 		F700222C1EC479840080073F /* Custom.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F700222B1EC479840080073F /* Custom.xcassets */; };
 		F700222D1EC479840080073F /* Custom.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F700222B1EC479840080073F /* Custom.xcassets */; };
 		F70022A11EC4C9100080073F /* AFHTTPSessionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F700225A1EC4C9100080073F /* AFHTTPSessionManager.m */; };
@@ -668,6 +669,8 @@
 		08EA97451E6554FC004C83FA /* FirebaseCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = FirebaseCore.framework; sourceTree = "<group>"; };
 		08EA97461E6554FC004C83FA /* FirebaseInstanceID.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = FirebaseInstanceID.framework; sourceTree = "<group>"; };
 		08EA97471E6554FC004C83FA /* GoogleToolboxForMac.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = GoogleToolboxForMac.framework; sourceTree = "<group>"; };
+		6506D875226B3D7000468C1D /* SRGMediaPlayer.framework.dSYM */ = {isa = PBXFileReference; lastKnownFileType = wrapper.dsym; name = SRGMediaPlayer.framework.dSYM; path = Carthage/Build/iOS/SRGMediaPlayer.framework.dSYM; sourceTree = "<group>"; };
+		6506D87D226C883600468C1D /* SRGMediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SRGMediaPlayer.framework; path = Carthage/Build/iOS/SRGMediaPlayer.framework; sourceTree = "<group>"; };
 		F700222B1EC479840080073F /* Custom.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Custom.xcassets; sourceTree = "<group>"; };
 		F70022591EC4C9100080073F /* AFHTTPSessionManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFHTTPSessionManager.h; sourceTree = "<group>"; };
 		F700225A1EC4C9100080073F /* AFHTTPSessionManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AFHTTPSessionManager.m; sourceTree = "<group>"; };
@@ -1521,6 +1524,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6506D87E226C883600468C1D /* SRGMediaPlayer.framework in Frameworks */,
 				F7C40BF32199978B0004137E /* MBProgressHUD.framework in Frameworks */,
 				F79918A221997FA300C2E308 /* UICKeyChainStore.framework in Frameworks */,
 				F75EDFBF1E8C116D00E6F369 /* libstdc++.tbd in Frameworks */,
@@ -3016,6 +3020,8 @@
 		F7FC7D541DC1F93700BB2C6A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6506D87D226C883600468C1D /* SRGMediaPlayer.framework */,
+				6506D875226B3D7000468C1D /* SRGMediaPlayer.framework.dSYM */,
 				F76E71E42244DF6900690001 /* Zip.framework */,
 				F745B250222D871800346520 /* QRCodeReader.framework */,
 				F75153232226920200323DDC /* FastScroll.framework */,
@@ -3493,6 +3499,10 @@
 				"$(SRCROOT)/Carthage/Build/iOS/FastScroll.framework",
 				"$(SRCROOT)/Carthage/Build/iOS/QRCodeReader.framework",
 				"$(SRCROOT)/Carthage/Build/iOS/Zip.framework",
+				"$(SRCROOT)/Carthage/Build/iOS/SRGMediaPlayer.framework",
+				"$(SRCROOT)/Carthage/Build/iOS/MAKVONotificationCenter.framework",
+				"$(SRCROOT)/Carthage/Build/iOS/SRGLogger.framework",
+				"$(SRCROOT)/Carthage/Build/iOS/libextobjc.framework",
 			);
 			outputPaths = (
 			);

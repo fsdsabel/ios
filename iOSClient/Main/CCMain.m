@@ -341,8 +341,8 @@
         
         // Detail
         // If AVPlayer in play -> Stop
-        if (appDelegate.player != nil && appDelegate.player.rate != 0) {
-            [appDelegate.player pause];
+        if (appDelegate.playerController != nil) {
+            [appDelegate.playerController.controller stop];
         }
         for (UIView *view in [appDelegate.activeDetail.view subviews]) {
             if ([view isKindOfClass:[UIImageView class]] == NO) { // View Image Nextcloud
@@ -4207,9 +4207,10 @@
     }
     
     NSMutableArray *photoDataSource = [NSMutableArray new];
+    NSMutableArray *mediaDataSource = [NSMutableArray new];
     
     if ([sender isKindOfClass:[tableMetadata class]]) {
-    
+        // TODO: what is that?
         metadata = sender;
         [photoDataSource addObject:sender];
         
@@ -4221,11 +4222,15 @@
             tableMetadata *metadata = [sectionDataSource.allRecordsDataSource objectForKey:fileID];
             if ([metadata.typeFile isEqualToString: k_metadataTypeFile_image])
                 [photoDataSource addObject:metadata];
+            else if([metadata.typeFile isEqualToString: k_metadataTypeFile_video]
+                    || [metadata.typeFile isEqualToString: k_metadataTypeFile_audio])
+                [mediaDataSource addObject:metadata];
         }
     }
     
     _detailViewController.metadataDetail = metadata;
     _detailViewController.photoDataSource = photoDataSource;
+    _detailViewController.mediaDataSource = mediaDataSource;
     _detailViewController.dateFilterQuery = nil;
     
     [_detailViewController setTitle:metadata.fileNameView];

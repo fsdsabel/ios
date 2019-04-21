@@ -53,6 +53,7 @@
 
 @implementation CCDetail
 
+
 #pragma --------------------------------------------------------------------------------------------
 #pragma mark ===== init =====
 #pragma --------------------------------------------------------------------------------------------
@@ -70,6 +71,8 @@
         self.photoDataSource = [NSMutableArray new];
         indexNowVisible = -1;
         fileIDNowVisible = nil;
+        self.medias = [[NSMutableArray alloc] init];
+        self.mediaDataSource = [NSMutableArray new];
 
         appDelegate.activeDetail = self;
     }
@@ -127,8 +130,8 @@
     [super viewDidDisappear:animated];
     
     // If AVPlayer in play -> Stop
-    if (appDelegate.player != nil && appDelegate.player.rate != 0) {
-        [appDelegate.player pause];
+    if (appDelegate.playerController != nil) {
+        [appDelegate.playerController.controller stop];
     }
     
     // remove Observer AVPlayer
@@ -209,7 +212,7 @@
         
         self.edgesForExtendedLayout = UIRectEdgeAll;
         [self createToolbar];
-        [[NCViewerMedia sharedInstance] viewMedia:self.metadataDetail detail:self];
+        [self viewMedia];
     }
     
     // DOCUMENT
@@ -317,6 +320,33 @@
     self.toolbar.tintColor = [NCBrandColor sharedInstance].brandElement;
 
     [self.view addSubview:self.toolbar];
+}
+
+#pragma --------------------------------------------------------------------------------------------
+#pragma mark ===== View Media =====
+#pragma --------------------------------------------------------------------------------------------
+
+- (void)viewMedia
+{
+    [self.medias removeAllObjects];
+    
+    // if not media, exit
+    if ([self.mediaDataSource count] == 0)
+        return;
+    
+    NSInteger index = 0;
+    tableMetadata *metadataToShow;
+    for (tableMetadata *metadata in self.mediaDataSource) {
+        // start from here ?
+        if (self.metadataDetail.fileID && [metadata.fileID isEqualToString:self.metadataDetail.fileID])
+            metadataToShow = metadata;
+        
+        [self.medias addObject:metadata];
+
+        index++;
+    }
+    
+    [[NCViewerMedia sharedInstance] viewMedia:metadataToShow detail:self];
 }
 
 #pragma --------------------------------------------------------------------------------------------

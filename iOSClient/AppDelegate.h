@@ -24,6 +24,7 @@
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
 #import <PushKit/PushKit.h>
+#import <SRGMediaPlayer/SRGMediaPlayer.h>
 
 #import "BKPasscodeLockScreenManager.h"
 #import "REMenu.h"
@@ -80,8 +81,7 @@
 @property (nonatomic, strong) NSDate *sessionePasscodeLock;
 
 // Audio Video
-@property (nonatomic, strong) AVPlayer *player;
-@property (nonatomic, strong) AVPlayerViewController *playerController;
+@property (nonatomic, strong) SRGMediaPlayerViewController *playerController;
 
 // Push Norification Token
 @property (nonatomic, strong) NSString *pushKitToken;
