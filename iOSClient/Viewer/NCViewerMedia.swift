@@ -60,7 +60,11 @@ class NCViewerMedia: NSObject {
         NotificationCenter.default.addObserver(forName: NSNotification.Name.SRGMediaPlayerPlaybackStateDidChange, object: playerController.controller, queue: nil) { (notification) in
             switch(self.playerController.controller.playbackState) {
             case .ended:
+                print("auto next")
                 self.currentMediaIndex += 1
+                break
+            case .playing:
+                self.setupNowPlaying()
                 break
             default:
                 break
@@ -68,31 +72,13 @@ class NCViewerMedia: NSObject {
             
         }
         
-        
-      //  SRGMediaPlayerViewController
-        /*appDelegate.player = AVPlayer(url: videoURLProxy)
-        appDelegate.playerController = AVPlayerViewController()
-        
-        appDelegate.playerController.player = appDelegate.player
-        appDelegate.playerController.view.frame = CGRect(x: 0, y: 0, width: Int(detail.view.bounds.size.width), height: Int(detail.view.bounds.size.height) - Int(k_detail_Toolbar_Height) - safeAreaBottom - 1)
-        appDelegate.playerController.allowsPictureInPicturePlayback = false
-        detail.addChild(appDelegate.playerController)
-        detail.view.addSubview(appDelegate.playerController.view)
-        appDelegate.playerController.didMove(toParent: detail)
-        
-        NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: nil, queue: nil) { (notification) in
-            let player = notification.object as! AVPlayerItem
-            player.seek(to: CMTime.zero)
-        }
-        
-        appDelegate.player.addObserver(self, forKeyPath: "rate", options: [], context: nil)*/
-        
+        setupRemoteTransportControls()
+                
         
         detail.isMediaObserver = true
         
         augmentToolbar()
         
-        //appDelegate.player.play()
         playerController.controller.play(videoURLProxy)
     }
     
@@ -122,8 +108,17 @@ class NCViewerMedia: NSObject {
             return nil
         }
         
+        // KTVHTTPCache might have been shutdown by system when we are in background -> go again
+        if !KTVHTTPCache.proxyIsRunning() {
+            do {
+                try KTVHTTPCache.proxyStart()
+            } catch let error {
+                print("Proxy restart error : \(error)")
+            }
+        }
+        
         let videoURL = URL(string: stringURL)
-        let videoURLProxy = KTVHTTPCache.proxyURL(withOriginalURL: self.videoURL)
+        let videoURLProxy = KTVHTTPCache.proxyURL(withOriginalURL: videoURL)
         
         guard let authData = (appDelegate.activeUser + ":" + appDelegate.activePassword).data(using: .utf8) else {
             return nil
@@ -169,7 +164,10 @@ class NCViewerMedia: NSObject {
             if value == currentIndex {
                 return
             }
-            let newIndex = value % detail.medias.count
+            var newIndex = value % detail.medias.count
+            if newIndex < 0 {
+                newIndex = 0
+            }
             metadata = detail.medias.object(at: newIndex) as? tableMetadata
             
             guard let url = loadMetadata(metadata: metadata) else {
@@ -182,13 +180,87 @@ class NCViewerMedia: NSObject {
         }
     }
     
-    func updateStates() {
+    private func updateStates() {
         previousButton.isEnabled = currentMediaIndex > 0
         nextButton.isEnabled = currentMediaIndex < detail.medias.count - 1
     }
     
+    private func setupRemoteTransportControls() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        
+        commandCenter.playCommand.addTarget {
+            [unowned self] event in
+            if self.playerController.controller.player?.rate == 0.0 {
+                self.playerController.controller.play()
+                return .success
+            }
+            return .commandFailed
+        }
+        
+        commandCenter.pauseCommand.addTarget {
+            [unowned self] event in
+            if self.playerController.controller.player?.rate == 1.0 {
+                self.playerController.controller.pause()
+                return .success
+            }
+            return .commandFailed
+        }
+        
+        commandCenter.nextTrackCommand.addTarget {
+            [unowned self] event in
+            self.currentMediaIndex += 1
+            return .success
+        }
+        
+        commandCenter.previousTrackCommand.addTarget {
+            [unowned self] event in
+            self.currentMediaIndex -= 1
+            return .success
+        }
+        
+        commandCenter.changePlaybackPositionCommand.isEnabled = true
+        commandCenter.changePlaybackPositionCommand.addTarget {
+            [unowned self] event in
+            let posevent = event as! MPChangePlaybackPositionCommandEvent
+            self.playerController.controller.seek(to: SRGPosition(atTimeInSeconds: posevent.positionTime), withCompletionHandler: nil)
+            return .success
+        }
+    }
+    
+    private func setupNowPlaying() {
+        // Define Now Playing Info
+        var nowPlayingInfo = [String : Any]()
+        nowPlayingInfo[MPMediaItemPropertyTitle] = metadata.fileNameView
+        
+        var icon : UIImage?
+        
+        if FileManager.default.fileExists(atPath: CCUtility.getDirectoryProviderStorageIconFileID(metadata.fileID, fileNameView: metadata.fileNameView)) {
+            icon = UIImage.init(contentsOfFile:  CCUtility.getDirectoryProviderStorageIconFileID(metadata.fileID, fileNameView: metadata.fileNameView))
+        } else {
+            icon = UIImage.init(named: metadata.iconName)
+        }
+        if let image = icon {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] =
+                MPMediaItemArtwork(boundsSize: image.size) { size in
+                    return image
+            }
+        }
+        
+        
+        let player = playerController.controller.player
+        let playerItem = player?.currentItem
+        
+        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = playerItem?.currentTime().seconds
+        nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = playerItem?.asset.duration.seconds
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = player?.rate
+        
+        // Set the metadata
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    }
+    
+    
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        //TODO: call that
+        
         if keyPath != nil && keyPath == "rate" {
             
             if appDelegate.playerController.controller.player?.rate == 1 {
@@ -218,9 +290,6 @@ class NCViewerMedia: NSObject {
     }
     
     @objc func removeObserver() {
-        
-       // appDelegate.player.removeObserver(self, forKeyPath: "rate", context: nil)
-       // NotificationCenter.default.removeObserver(self, name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object: nil)
         appDelegate.playerController?.controller.player?.removeObserver(self, forKeyPath: "rate", context: nil)
         NotificationCenter.default.removeObserver(self, name: NSNotification.Name.SRGMediaPlayerPlaybackStateDidChange, object: playerController.controller)
     }
